@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { 
   collection, 
@@ -9,8 +8,7 @@ import {
   orderBy,
   Timestamp 
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { supabase } from '../lib/supabase';
 import { TravelPin, TravelPhoto } from '@/types';
 import { useAuth } from './useAuth';
 
@@ -27,26 +25,15 @@ export const usePins = () => {
     }
 
     try {
-      const q = query(
-        collection(db, 'pins'),
-        where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc')
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const fetchedPins: TravelPin[] = [];
-      
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        fetchedPins.push({
-          id: doc.id,
-          ...data,
-          visitDate: data.visitDate.toDate(),
-          createdAt: data.createdAt.toDate(),
-        } as TravelPin);
-      });
-      
-      setPins(fetchedPins);
+      const { data, error } = await supabase
+        .from('pins')
+        .select('*')
+        .eq('userId', user.uid)
+        .order('createdAt', { ascending: false });
+
+      if (error) throw error;
+
+      setPins(data || []);
     } catch (error) {
       console.error('Error fetching pins:', error);
     } finally {
@@ -76,14 +63,11 @@ export const usePins = () => {
       
       for (const file of pinData.photos) {
         const photoId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-        const storageRef = ref(storage, `photos/${user.uid}/${photoId}`);
-        
-        await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(storageRef);
+        const url = await uploadPhoto(user.uid, file);
         
         uploadedPhotos.push({
           id: photoId,
-          url: downloadURL,
+          url: url,
           uploadDate: new Date(),
           metadata: {
             size: file.size,
@@ -136,3 +120,19 @@ export const usePins = () => {
     refetch: fetchPins,
   };
 };
+
+export async function uploadPhoto(userId: string, file: File) {
+  const filePath = `${userId}/${Date.now()}_${file.name}`;
+  const { data, error } = await supabase.storage
+    .from('photos') // your bucket name
+    .upload(filePath, file);
+
+  if (error) throw error;
+
+  // Get public URL
+  const { data: publicUrlData } = supabase.storage
+    .from('photos')
+    .getPublicUrl(filePath);
+
+  return publicUrlData.publicUrl;
+}
