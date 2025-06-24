@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePins } from '@/hooks/usePins';
@@ -7,16 +6,18 @@ import MapView from '@/components/MapView';
 import AddPinModal from '@/components/AddPinModal';
 import PinGalleryModal from '@/components/PinGalleryModal';
 import TimelineView from '@/components/TimelineView';
-import TokenInput from '@/components/TokenInput';
 import AuthModal from '@/components/AuthModal';
 import { TravelPin } from '@/types';
 import { MapPin, Calendar } from 'lucide-react';
+
+// Add your Mapbox token here.
+// You can get a free token from https://account.mapbox.com/
+const mapboxToken = 'pk.eyJ1IjoiaGVtcGJveGMiLCJhIjoiY21jOG8wc2d2MXNvMDJpcTBtanJ3YWN4dCJ9.Glj_yu33MTij9gcdVD0h_Q';
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const { pins, loading: pinsLoading, addPin } = usePins();
   const [currentView, setCurrentView] = useState<'map' | 'timeline'>('map');
-  const [mapboxToken, setMapboxToken] = useState<string>('');
   const [authModalOpen, setAuthModalOpen] = useState(false);
   
   // Add pin modal state
@@ -66,10 +67,6 @@ const Index = () => {
         </div>
       </div>
     );
-  }
-
-  if (!mapboxToken) {
-    return <TokenInput onTokenSubmit={setMapboxToken} />;
   }
 
   if (!user) {
