@@ -1,13 +1,4 @@
 import { useState, useEffect } from 'react';
-import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy,
-  Timestamp 
-} from 'firebase/firestore';
 import { supabase } from '../lib/supabase';
 import { TravelPin, TravelPhoto } from '@/types';
 import { useAuth } from './useAuth';
@@ -33,9 +24,15 @@ export const usePins = () => {
 
       if (error) throw error;
 
-      setPins(data || []);
+      const formattedPins = (data || []).map(pin => ({
+        ...pin,
+        createdAt: new Date(pin.createdAt),
+        visitDate: new Date(pin.visitDate),
+      }));
+
+      setPins(formattedPins);
     } catch (error) {
-      console.error('Error fetching pins:', error);
+      console.error('Error fetching pins:', error); 
     } finally {
       setLoading(false);
     }
@@ -77,31 +74,32 @@ export const usePins = () => {
         });
       }
 
-      // Create pin document
-      const pinDoc = {
+      // Create pin document for Supabase
+      const pinToInsert = {
         lat,
         lng,
         title: pinData.title,
         description: pinData.description,
-        visitDate: Timestamp.fromDate(pinData.visitDate),
+        visitDate: pinData.visitDate.toISOString(),
         photos: uploadedPhotos,
         userId: user.uid,
-        createdAt: Timestamp.now(),
       };
 
-      const docRef = await addDoc(collection(db, 'pins'), pinDoc);
+      const { data, error } = await supabase
+        .from('pins')
+        .insert(pinToInsert)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
       
-      // Add to local state
+      // Add to local state, ensuring date types are correct
       const newPin: TravelPin = {
-        id: docRef.id,
-        lat,
-        lng,
-        title: pinData.title,
-        description: pinData.description,
-        visitDate: pinData.visitDate,
-        photos: uploadedPhotos,
-        userId: user.uid,
-        createdAt: new Date(),
+        ...data,
+        visitDate: new Date(data.visitDate),
+        createdAt: new Date(data.createdAt),
       };
       
       setPins(prev => [newPin, ...prev]);
